@@ -40,7 +40,10 @@ object PaymentNotificationParser {
 
     private val amountPatterns = listOf(
         Regex("""(?:人民币|RMB|CNY|¥|￥)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE),
-        Regex("""([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*元""")
+        Regex("""([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*元"""),
+        Regex(
+            """(?:支付成功|付款成功|成功付款|成功支付|已支付|已付款|扣款成功|扣费成功|已扣款|已扣费|实付)\s*[：:]?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)"""
+        )
     )
 
     private val categoryRules = linkedMapOf(
@@ -116,7 +119,10 @@ object PaymentNotificationParser {
 
         val strongAction = containsAny(
             content,
-            listOf("支付成功", "付款成功", "扣款成功", "交易成功", "支出", "消费") + sanitizeKeywords(customKeywords)
+            listOf(
+                "支付成功", "付款成功", "成功付款", "成功支付", "已支付", "已付款",
+                "扣款成功", "扣费成功", "已扣款", "已扣费", "交易成功", "支出", "消费"
+            ) + sanitizeKeywords(customKeywords)
         )
         return if (officialIdentity && strongAction) "alipay" else null
     }

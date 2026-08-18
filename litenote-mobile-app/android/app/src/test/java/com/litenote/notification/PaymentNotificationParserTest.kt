@@ -62,6 +62,50 @@ class PaymentNotificationParserTest {
     }
 
     @Test
+    fun `支付宝扫码成功付款通知可以识别`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.ALIPAY_PACKAGE,
+                title = "支付助手",
+                text = "成功付款916.00元",
+                bigText = "付款给手插裤袋没人爱(**娃)"
+            )
+        )
+
+        assertNotNull(result)
+        assertEquals(916.0, result!!.amount, 0.001)
+        assertEquals("alipay", result.source)
+    }
+
+    @Test
+    fun `支付宝成功付款省略货币单位也可以识别`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.ALIPAY_PACKAGE,
+                title = "支付宝",
+                text = "已成功付款：15.20"
+            )
+        )
+
+        assertNotNull(result)
+        assertEquals(15.2, result!!.amount, 0.001)
+        assertEquals("alipay", result.source)
+    }
+
+    @Test
+    fun `支付宝扫码优惠广告不会触发`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.ALIPAY_PACKAGE,
+                title = "支付宝",
+                text = "扫码付款享优惠，最高立减99元"
+            )
+        )
+
+        assertNull(result)
+    }
+
+    @Test
     fun `拼多多价格广告不会触发`() {
         val result = PaymentNotificationParser.parse(
             PaymentNotificationContent(
