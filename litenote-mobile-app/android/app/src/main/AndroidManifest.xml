@@ -27,6 +27,7 @@
         <package android:name="com.tencent.mm" />
         <package android:name="com.eg.android.AlipayGphone" />
         <package android:name="com.xunmeng.pinduoduo" />
+        <package android:name="com.icbc" />
         <package android:name="com.hihonor.mms" />
         <package android:name="com.android.mms" />
         <package android:name="com.google.android.apps.messaging" />

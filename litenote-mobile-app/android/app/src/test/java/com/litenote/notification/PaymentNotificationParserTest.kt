@@ -8,6 +8,17 @@ import org.junit.Test
 class PaymentNotificationParserTest {
 
     @Test
+    fun `默认监听只包含微信和支付宝`() {
+        assertEquals(
+            setOf(
+                PaymentNotificationParser.WECHAT_PACKAGE,
+                PaymentNotificationParser.ALIPAY_PACKAGE
+            ),
+            PaymentNotificationParser.DEFAULT_SUPPORTED_PACKAGES
+        )
+    }
+
+    @Test
     fun `普通微信聊天包含支付金额时不触发`() {
         val result = PaymentNotificationParser.parse(
             PaymentNotificationContent(
@@ -32,6 +43,21 @@ class PaymentNotificationParserTest {
 
         assertNotNull(result)
         assertEquals(100.0, result!!.amount, 0.001)
+        assertEquals("wechat", result.source)
+    }
+
+    @Test
+    fun `微信支付已扣费通知可以识别`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.WECHAT_PACKAGE,
+                title = "微信支付",
+                text = "已扣费¥15.39"
+            )
+        )
+
+        assertNotNull(result)
+        assertEquals(15.39, result!!.amount, 0.001)
         assertEquals("wechat", result.source)
     }
 
@@ -98,6 +124,36 @@ class PaymentNotificationParserTest {
                 packageName = "com.hihonor.mms",
                 title = "张三",
                 text = "支付成功100元"
+            )
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `工商银行应用动账通知可以识别`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.ICBC_PACKAGE,
+                title = "工商银行",
+                text = "尾号3343卡8月18日14:48支出(消费财付通-拼多多平台商户)15.39元，余额5,626.42元。",
+                subText = "动账通知"
+            )
+        )
+
+        assertNotNull(result)
+        assertEquals(15.39, result!!.amount, 0.001)
+        assertEquals("bank_app", result.source)
+        assertEquals("购物", result.categoryHint)
+    }
+
+    @Test
+    fun `未受信任应用伪造银行动账通知不会触发`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = "com.example.fake",
+                title = "工商银行",
+                text = "尾号3343卡支出15.39元"
             )
         )
 

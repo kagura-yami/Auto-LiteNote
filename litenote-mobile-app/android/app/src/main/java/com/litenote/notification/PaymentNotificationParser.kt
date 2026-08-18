@@ -13,6 +13,7 @@ object PaymentNotificationParser {
     const val WECHAT_PACKAGE = "com.tencent.mm"
     const val ALIPAY_PACKAGE = "com.eg.android.AlipayGphone"
     const val PINDUODUO_PACKAGE = "com.xunmeng.pinduoduo"
+    const val ICBC_PACKAGE = "com.icbc"
 
     val SMS_PACKAGES = setOf(
         "com.hihonor.mms",
@@ -20,11 +21,18 @@ object PaymentNotificationParser {
         "com.google.android.apps.messaging"
     )
 
+    val BANK_APP_PACKAGES = setOf(ICBC_PACKAGE)
+
     val DEFAULT_SUPPORTED_PACKAGES = setOf(
+        WECHAT_PACKAGE,
+        ALIPAY_PACKAGE
+    )
+
+    val KNOWN_SUPPORTED_PACKAGES = setOf(
         WECHAT_PACKAGE,
         ALIPAY_PACKAGE,
         PINDUODUO_PACKAGE
-    ) + SMS_PACKAGES
+    ) + SMS_PACKAGES + BANK_APP_PACKAGES
 
     private val incomeOrReversalKeywords = listOf(
         "收款", "到账", "入账", "收入", "转入", "存入", "退款", "退货", "撤销", "冲正", "红包"
@@ -62,6 +70,7 @@ object PaymentNotificationParser {
             ALIPAY_PACKAGE -> parseAlipay(data, content, customKeywords)
             PINDUODUO_PACKAGE -> parsePinduoduo(content)
             in SMS_PACKAGES -> parseBankSms(data, content, customKeywords)
+            in BANK_APP_PACKAGES -> parseBankApp(data, content, customKeywords)
             else -> null
         } ?: return null
 
@@ -90,7 +99,8 @@ object PaymentNotificationParser {
 
         val strongAction = containsAny(
             content,
-            listOf("支付成功", "付款成功", "扣款成功", "交易成功", "已支付") + sanitizeKeywords(customKeywords)
+            listOf("支付成功", "付款成功", "扣款成功", "扣费成功", "交易成功", "已支付", "已扣费") +
+                sanitizeKeywords(customKeywords)
         )
         return if (officialIdentity && strongAction) "wechat" else null
     }
@@ -137,6 +147,23 @@ object PaymentNotificationParser {
         return if (bankIdentity && outgoingAction) "bank_sms" else null
     }
 
+    private fun parseBankApp(
+        data: PaymentNotificationContent,
+        content: String,
+        customKeywords: List<String>
+    ): String? {
+        val bankIdentity = listOf(data.title, data.titleBig, data.subText).any {
+            containsAny(it, listOf("工商银行", "动账通知", "交易提醒"))
+        } || containsAny(content, listOf("工商银行", "尾号", "动账通知"))
+
+        val outgoingAction = containsAny(
+            content,
+            listOf("消费", "支出", "扣款", "支付", "转出", "快捷支付", "交易金额") +
+                sanitizeKeywords(customKeywords)
+        )
+        return if (bankIdentity && outgoingAction) "bank_app" else null
+    }
+
     private fun extractAmount(content: String): Double? {
         data class Candidate(val amount: Double, val score: Int, val position: Int)
 
@@ -179,6 +206,7 @@ object PaymentNotificationParser {
         "alipay" -> "支付宝"
         "pinduoduo" -> "拼多多"
         "bank_sms" -> "银行卡短信"
+        "bank_app" -> "银行应用"
         else -> "电子支付"
     }
 }

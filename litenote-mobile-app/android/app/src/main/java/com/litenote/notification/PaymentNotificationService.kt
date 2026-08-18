@@ -29,7 +29,7 @@ class PaymentNotificationService : NotificationListenerService() {
         private const val KEY_MONITORED_APPS = "monitored_apps"
         private const val KEY_FILTER_KEYWORDS = "filter_keywords"
         private const val KEY_CONFIG_VERSION = "config_version"
-        private const val CURRENT_CONFIG_VERSION = 31
+        private const val CURRENT_CONFIG_VERSION = 33
 
         const val ACTION_PAYMENT_DETECTED = "com.litenote.PAYMENT_DETECTED"
         const val EXTRA_PAYMENT_DATA = "payment_data"
@@ -40,12 +40,13 @@ class PaymentNotificationService : NotificationListenerService() {
 
         private val DEFAULT_APP_NAMES = mapOf(
             PaymentNotificationParser.WECHAT_PACKAGE to "微信",
-            PaymentNotificationParser.ALIPAY_PACKAGE to "支付宝",
-            PaymentNotificationParser.PINDUODUO_PACKAGE to "拼多多",
-            "com.hihonor.mms" to "荣耀信息",
-            "com.android.mms" to "系统短信",
-            "com.google.android.apps.messaging" to "Google 信息"
+            PaymentNotificationParser.ALIPAY_PACKAGE to "支付宝"
         )
+
+        private val LEGACY_AUTO_ENABLED_PACKAGES =
+            PaymentNotificationParser.KNOWN_SUPPORTED_PACKAGES -
+                PaymentNotificationParser.DEFAULT_SUPPORTED_PACKAGES -
+                PaymentNotificationParser.BANK_APP_PACKAGES
     }
 
     private var supportedPackages: Set<String> = PaymentNotificationParser.DEFAULT_SUPPORTED_PACKAGES
@@ -153,17 +154,24 @@ class PaymentNotificationService : NotificationListenerService() {
             } else {
                 val apps = JSONArray(appsJson)
                 val packages = mutableSetOf<String>()
+                val migratedApps = JSONArray()
+                val needsMigration = prefs.getInt(KEY_CONFIG_VERSION, 0) < CURRENT_CONFIG_VERSION
                 for (index in 0 until apps.length()) {
                     val app = apps.getJSONObject(index)
-                    if (app.optBoolean("enabled", true)) {
-                        app.optString("packageName").takeIf(String::isNotBlank)?.let(packages::add)
+                    val packageName = app.optString("packageName")
+                    if (needsMigration && packageName in LEGACY_AUTO_ENABLED_PACKAGES) {
+                        continue
+                    }
+                    migratedApps.put(app)
+                    if (app.optBoolean("enabled", true) && packageName.isNotBlank()) {
+                        packages.add(packageName)
                     }
                 }
 
-                if (prefs.getInt(KEY_CONFIG_VERSION, 0) < CURRENT_CONFIG_VERSION) {
+                if (needsMigration) {
                     val missingDefaults = PaymentNotificationParser.DEFAULT_SUPPORTED_PACKAGES - packages
                     missingDefaults.forEach { packageName ->
-                        apps.put(JSONObject().apply {
+                        migratedApps.put(JSONObject().apply {
                             put("packageName", packageName)
                             put("appName", DEFAULT_APP_NAMES[packageName] ?: packageName)
                             put("enabled", true)
@@ -171,7 +179,7 @@ class PaymentNotificationService : NotificationListenerService() {
                     }
                     packages += missingDefaults
                     prefs.edit()
-                        .putString(KEY_MONITORED_APPS, apps.toString())
+                        .putString(KEY_MONITORED_APPS, migratedApps.toString())
                         .putInt(KEY_CONFIG_VERSION, CURRENT_CONFIG_VERSION)
                         .apply()
                 }

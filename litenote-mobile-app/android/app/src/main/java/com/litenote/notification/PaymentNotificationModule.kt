@@ -283,7 +283,7 @@ class PaymentNotificationModule(
                 }
             }
 
-            val presetPackages = PaymentNotificationParser.DEFAULT_SUPPORTED_PACKAGES
+            val presetPackages = PaymentNotificationParser.KNOWN_SUPPORTED_PACKAGES
             presetPackages.forEach { packageName ->
                 try {
                     @Suppress("DEPRECATION")

@@ -2,7 +2,7 @@
  * 通用配置屏幕 - Neo-Brutalism 风格
  * 描边配置卡片 + 粗标签 + 糖果色强调
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -49,13 +49,17 @@ interface AppConfig {
   configVersion: number;
 }
 
-const PAYMENT_CONFIG_VERSION = 31;
+const PAYMENT_CONFIG_VERSION = 33;
 const DEFAULT_MONITORED_APPS: MonitoredApp[] = [
   { id: 'wechat', packageName: 'com.tencent.mm', appName: '微信', enabled: true },
   { id: 'alipay', packageName: 'com.eg.android.AlipayGphone', appName: '支付宝', enabled: true },
-  { id: 'pinduoduo', packageName: 'com.xunmeng.pinduoduo', appName: '拼多多', enabled: true },
-  { id: 'honor-mms', packageName: 'com.hihonor.mms', appName: '荣耀信息', enabled: true },
 ];
+const LEGACY_AUTO_ENABLED_PACKAGES = new Set([
+  'com.xunmeng.pinduoduo',
+  'com.hihonor.mms',
+  'com.android.mms',
+  'com.google.android.apps.messaging',
+]);
 const DEFAULT_PAYMENT_KEYWORDS = [
   '支付成功',
   '付款成功',
@@ -525,7 +529,7 @@ const createModalStyles = (colors: ThemeColors) =>
     },
   });
 
-export default function GeneralSettingsScreen({ navigation }: GeneralSettingsScreenProps) {
+export default function GeneralSettingsScreen({ navigation: _navigation }: GeneralSettingsScreenProps) {
   const styles = useStyles(createStyles);
   const { alert, confirm } = useAlert();
 
@@ -566,7 +570,10 @@ export default function GeneralSettingsScreen({ navigation }: GeneralSettingsScr
       const savedConfig = await AsyncStorage.getItem('appGeneralConfig');
       if (savedConfig) {
         const parsed = JSON.parse(savedConfig) as Partial<AppConfig>;
-        const savedApps = Array.isArray(parsed.monitoredApps) ? parsed.monitoredApps : [];
+        const rawSavedApps = Array.isArray(parsed.monitoredApps) ? parsed.monitoredApps : [];
+        const savedApps = parsed.configVersion === PAYMENT_CONFIG_VERSION
+          ? rawSavedApps
+          : rawSavedApps.filter(app => !LEGACY_AUTO_ENABLED_PACKAGES.has(app.packageName));
         const monitoredApps = parsed.configVersion === PAYMENT_CONFIG_VERSION
           ? savedApps
           : [

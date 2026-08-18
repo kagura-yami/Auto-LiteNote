@@ -49,8 +49,7 @@ class AutoBillRecorder(context: Context) {
             listOf(packageName, match.amount.toString(), normalize(rawContent)).joinToString("|")
         )
         val semanticKey = sha256(
-            listOf(packageName, match.source, match.amount.toString(), match.categoryHint.orEmpty())
-                .joinToString("|")
+            "%.2f".format(Locale.ROOT, match.amount)
         )
 
         synchronized(lock) {
@@ -60,9 +59,14 @@ class AutoBillRecorder(context: Context) {
             val exactDuplicate = pending.any { it.fingerprint == fingerprint } ||
                 recent.any { it.fingerprint == fingerprint }
             val semanticDuplicate = pending.any {
-                it.semanticKey == semanticKey && now - it.createdAt <= SEMANTIC_DEDUPE_MS
+                it.semanticKey == semanticKey &&
+                    it.source != match.source &&
+                    now - it.createdAt <= SEMANTIC_DEDUPE_MS
             } || recent.any {
-                it.semanticKey == semanticKey && now - it.createdAt <= SEMANTIC_DEDUPE_MS
+                it.semanticKey == semanticKey &&
+                    it.source != null &&
+                    it.source != match.source &&
+                    now - it.createdAt <= SEMANTIC_DEDUPE_MS
             }
 
             if (exactDuplicate || semanticDuplicate) {
@@ -124,7 +128,7 @@ class AutoBillRecorder(context: Context) {
             val now = System.currentTimeMillis()
             val recent = loadRecent()
                 .filter { now - it.createdAt <= EXACT_DEDUPE_MS }
-                .plus(RecentAutoBill(record.fingerprint, record.semanticKey, now))
+                .plus(RecentAutoBill(record.fingerprint, record.semanticKey, record.source, now))
                 .takeLast(MAX_RECENT_RECORDS)
             saveRecent(recent)
             processing = false
@@ -230,5 +234,6 @@ private data class PendingAutoBill(
 private data class RecentAutoBill(
     val fingerprint: String,
     val semanticKey: String,
+    val source: String? = null,
     val createdAt: Long
 )
