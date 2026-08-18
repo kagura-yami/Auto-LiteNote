@@ -54,10 +54,24 @@ function gitTagExists(version, projectRoot) {
   }
 }
 
-function syncRemoteGitState(projectRoot) {
+function getReleaseRemote(projectRoot) {
+  const remotes = execSync('git remote', {
+    cwd: projectRoot,
+    encoding: 'utf8',
+  })
+    .split(/\r?\n/)
+    .map(remote => remote.trim())
+    .filter(Boolean);
+
+  if (remotes.includes('fork')) return 'fork';
+  if (remotes.includes('origin')) return 'origin';
+  throw new Error('未找到可用的 Git 远程仓库');
+}
+
+function syncRemoteGitState(projectRoot, remote) {
   try {
-    execSync('git fetch origin main --tags --prune', { cwd: projectRoot, stdio: 'pipe' });
-    console.log('📥 已同步远程 main 和 tags');
+    execSync(`git fetch ${remote} main --tags --prune`, { cwd: projectRoot, stdio: 'pipe' });
+    console.log(`📥 已同步 ${remote}/main 和 tags`);
   } catch (error) {
     console.warn('⚠️ 同步远程 Git 信息失败，继续使用本地状态');
   }
@@ -80,16 +94,20 @@ function bumpVersion(type = 'patch', projectRoot) {
   return newVersion;
 }
 
-// 版本号转 versionCode
-function versionToCode(version) {
-  const [major, minor, patch] = version.split('.').map(Number);
-  return major * 10000 + minor * 100 + patch;
+// Android versionCode 必须始终递增，不能随 fork 的展示版本号重置。
+function getCurrentAndroidVersionCode() {
+  const gradle = fs.readFileSync(CONFIG.buildGradlePath, 'utf8');
+  const match = gradle.match(/versionCode\s+(\d+)/);
+  if (!match) {
+    throw new Error('无法从 android/app/build.gradle 读取 versionCode');
+  }
+  return Number(match[1]);
 }
 
 // 更新 Android build.gradle
 function updateAndroidVersion(version) {
   let gradle = fs.readFileSync(CONFIG.buildGradlePath, 'utf8');
-  const versionCode = versionToCode(version);
+  const versionCode = getCurrentAndroidVersionCode() + 1;
 
   gradle = gradle.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
   gradle = gradle.replace(/versionName\s+"[^"]+"/, `versionName "${version}"`);
@@ -169,7 +187,7 @@ function uploadApk(version, updateLog) {
 }
 
 // 提交版本变更到 Git
-function commitVersionChange(version, updateLog, isCI = false) {
+function commitVersionChange(version, updateLog, releaseRemote, isCI = false) {
   const projectRoot = path.join(__dirname, '..');
   const filesToCommit = [
     'package.json',
@@ -205,8 +223,8 @@ function commitVersionChange(version, updateLog, isCI = false) {
   // CI 模式下自动 push
   if (isCI) {
     console.log('📤 推送提交和版本标签...');
-    execSync('git push origin HEAD:main --follow-tags', { cwd: projectRoot, stdio: 'pipe' });
-    console.log('📤 已推送到远程仓库');
+    execSync(`git push ${releaseRemote} HEAD:main --follow-tags`, { cwd: projectRoot, stdio: 'pipe' });
+    console.log(`📤 已推送到 ${releaseRemote}/main`);
   }
 }
 
@@ -222,9 +240,10 @@ async function main() {
 
   try {
     const projectRoot = path.join(__dirname, '..');
+    const releaseRemote = getReleaseRemote(projectRoot);
 
     // 0. 同步远程 Git 信息，避免重复版本号 / 重复 tag
-    syncRemoteGitState(projectRoot);
+    syncRemoteGitState(projectRoot, releaseRemote);
 
     // 1. 递增版本号
     const newVersion = bumpVersion(versionType, projectRoot);
@@ -239,7 +258,7 @@ async function main() {
     const result = await uploadApk(newVersion, updateLog);
 
     // 5. 提交版本变更到 Git
-    commitVersionChange(newVersion, updateLog, isCI);
+    commitVersionChange(newVersion, updateLog, releaseRemote, isCI);
 
     console.log('\n🎉 发布完成！');
     console.log(`   版本: ${newVersion}`);

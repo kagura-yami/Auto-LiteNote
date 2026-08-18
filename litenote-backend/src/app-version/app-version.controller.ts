@@ -25,7 +25,7 @@ import {
 import { AppVersionService } from './app-version.service';
 import { CreateAppVersionDto } from './dto/app-version.dto';
 import { join } from 'path';
-import { existsSync, mkdirSync, renameSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, renameSync } from 'fs';
 import { Request } from 'express';
 import { Public } from '../auth/decorators/public.decorator';
 
@@ -137,6 +137,9 @@ export class AppVersionController {
       const newFilename = `app-v${dto.version}.apk`;
       const newPath = join(UPLOAD_DIR, newFilename);
       renameSync(file.path, newPath);
+
+      // 同步稳定下载地址，用户无需在每次发布后更换链接。
+      copyFileSync(newPath, join(UPLOAD_DIR, 'app-latest.apk'));
 
       // 从请求中获取实际的 host
       const protocol = req.protocol;
