@@ -1,8 +1,10 @@
 package com.litenote.notification
 
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.service.notification.NotificationListenerService
 import android.util.Log
 
 /**
@@ -23,11 +25,11 @@ class BootCompletedReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
-        if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
-            Log.i(TAG, "开机完成，通知监听服务将由系统自动启动")
-            
-            // NotificationListenerService 由系统管理，无需手动启动
-            // 如果用户已授权通知访问权限，系统会自动启动服务
+        if (context != null && intent?.action == Intent.ACTION_BOOT_COMPLETED) {
+            Log.i(TAG, "开机完成，请求系统重新绑定通知监听服务")
+            NotificationListenerService.requestRebind(
+                ComponentName(context, PaymentNotificationService::class.java)
+            )
         }
     }
 }

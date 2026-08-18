@@ -204,7 +204,19 @@ class AIService {
       });
       es.addEventListener('error', (e) => {
         if (!closed) {
-          callbacks.onError?.({ message: (e as any)?.message || '连接断开' });
+          const event = e as { data?: string; message?: string };
+          let message = event.message;
+
+          if (event.data) {
+            try {
+              const payload = JSON.parse(event.data) as { message?: string; error?: string };
+              message = payload.message || payload.error || event.data;
+            } catch {
+              message = event.data;
+            }
+          }
+
+          callbacks.onError?.({ message: message || '连接断开' });
         }
         es?.close();
       });

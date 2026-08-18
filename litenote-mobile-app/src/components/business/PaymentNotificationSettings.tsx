@@ -38,7 +38,6 @@ export const PaymentNotificationSettings: React.FC<PaymentNotificationSettingsPr
   const styles = useStyles(createStyles);
   const [isSupported] = useState(() => paymentNotificationService.isSupported());
   const [notificationStatus, setNotificationStatus] = useState<PermissionStatus>('unknown');
-  const [overlayStatus, setOverlayStatus] = useState<PermissionStatus>('unknown');
   const [isLoading, setIsLoading] = useState(true);
 
   const checkPermissions = useCallback(async () => {
@@ -49,12 +48,8 @@ export const PaymentNotificationSettings: React.FC<PaymentNotificationSettingsPr
 
     setIsLoading(true);
     try {
-      const [notifStatus, overlayPerm] = await Promise.all([
-        paymentNotificationService.getPermissionStatus(),
-        paymentNotificationService.getOverlayPermissionStatus(),
-      ]);
+      const notifStatus = await paymentNotificationService.getPermissionStatus();
       setNotificationStatus(notifStatus);
-      setOverlayStatus(overlayPerm);
     } catch (error) {
       console.error('Failed to check permissions:', error);
     } finally {
@@ -78,19 +73,12 @@ export const PaymentNotificationSettings: React.FC<PaymentNotificationSettingsPr
     paymentNotificationService.requestPermission();
   };
 
-  const handleRequestOverlayPermission = () => {
-    paymentNotificationService.requestOverlayPermission();
-  };
-
   if (!isSupported) {
     return null;
   }
 
   const notificationStatusInfo = getStatusInfo(notificationStatus, styles._colors);
-  const overlayStatusInfo = getStatusInfo(overlayStatus, styles._colors);
   const isNotificationAuthorized = notificationStatus === 'authorized';
-  const isOverlayAuthorized = overlayStatus === 'authorized';
-  const isFullyAuthorized = isNotificationAuthorized && isOverlayAuthorized;
 
   return (
     <View style={[styles.container, style]}>
@@ -102,7 +90,7 @@ export const PaymentNotificationSettings: React.FC<PaymentNotificationSettingsPr
           <Text style={styles.title}>支付自动记账</Text>
         </View>
         <Text style={styles.description}>
-          开启后，微信/支付宝支付时自动弹出记账窗口
+          严格识别支付通知后直接记账，无需再选择分类
         </Text>
       </View>
 
@@ -139,43 +127,10 @@ export const PaymentNotificationSettings: React.FC<PaymentNotificationSettingsPr
         </TouchableOpacity>
       </View>
 
-      {/* 悬浮窗权限 */}
-      <View style={styles.statusRow}>
-        <View style={styles.statusLeft}>
-          <Text style={styles.statusLabel}>悬浮窗权限</Text>
-          {isLoading ? (
-            <ActivityIndicator size="small" color={styles._colors.primary} />
-          ) : (
-            <View style={[styles.statusBadge, { backgroundColor: overlayStatusInfo.color }]}>
-              <Text style={styles.statusIcon}>{overlayStatusInfo.icon}</Text>
-              <Text style={styles.statusText}>{overlayStatusInfo.text}</Text>
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            isOverlayAuthorized ? styles.actionButtonSecondary : styles.actionButtonPrimary,
-          ]}
-          onPress={isOverlayAuthorized ? checkPermissions : handleRequestOverlayPermission}
-          disabled={isLoading}
-        >
-          <Text
-            style={[
-              styles.actionButtonText,
-              isOverlayAuthorized ? styles.actionButtonTextSecondary : styles.actionButtonTextPrimary,
-            ]}
-          >
-            {isOverlayAuthorized ? '刷新' : '去开启'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {!isFullyAuthorized && (
+      {!isNotificationAuthorized && (
         <View style={styles.hint}>
           <Text style={styles.hintText}>
-            💡 需要开启以上权限才能在支付时弹出记账窗口
+            💡 开启通知监听后才能自动识别支付；普通聊天消息不会记账
           </Text>
         </View>
       )}

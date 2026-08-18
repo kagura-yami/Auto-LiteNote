@@ -268,16 +268,43 @@ class PaymentNotificationModule(
     fun getInstalledApps(promise: Promise) {
         try {
             val pm = reactContext.packageManager
-            val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+            val packagesByName = linkedMapOf<String, ApplicationInfo>()
+
+            pm.getInstalledApplications(PackageManager.GET_META_DATA).forEach {
+                packagesByName[it.packageName] = it
+            }
+
+            val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            pm.queryIntentActivities(launcherIntent, PackageManager.MATCH_ALL).forEach { resolved ->
+                resolved.activityInfo?.applicationInfo?.let {
+                    packagesByName[it.packageName] = it
+                }
+            }
+
+            val presetPackages = PaymentNotificationParser.DEFAULT_SUPPORTED_PACKAGES
+            presetPackages.forEach { packageName ->
+                try {
+                    @Suppress("DEPRECATION")
+                    val appInfo = pm.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+                    packagesByName[packageName] = appInfo
+                } catch (_: PackageManager.NameNotFoundException) {
+                    // 未安装的预设应用不展示。
+                }
+            }
+
             val appList: WritableArray = Arguments.createArray()
 
-            for (app in packages) {
+            packagesByName.values
+                .sortedBy { it.loadLabel(pm).toString() }
+                .forEach { app ->
                 val appInfo = Arguments.createMap().apply {
                     putString("packageName", app.packageName)
                     putString("appName", app.loadLabel(pm).toString())
                 }
                 appList.pushMap(appInfo)
-            }
+                }
 
             promise.resolve(appList)
             Log.i(TAG, "已获取 ${appList.size()} 个已安装应用")

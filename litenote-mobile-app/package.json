@@ -1,6 +1,6 @@
 {
   "name": "LiteNote",
-  "version": "0.0.28",
+  "version": "0.0.11",
   "private": true,
   "scripts": {
     "android": "react-native run-android",

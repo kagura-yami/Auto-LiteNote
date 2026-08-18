@@ -46,7 +46,25 @@ interface MonitoredApp {
 interface AppConfig {
   monitoredApps: MonitoredApp[];
   filterKeywords: string[];
+  configVersion: number;
 }
+
+const PAYMENT_CONFIG_VERSION = 31;
+const DEFAULT_MONITORED_APPS: MonitoredApp[] = [
+  { id: 'wechat', packageName: 'com.tencent.mm', appName: '微信', enabled: true },
+  { id: 'alipay', packageName: 'com.eg.android.AlipayGphone', appName: '支付宝', enabled: true },
+  { id: 'pinduoduo', packageName: 'com.xunmeng.pinduoduo', appName: '拼多多', enabled: true },
+  { id: 'honor-mms', packageName: 'com.hihonor.mms', appName: '荣耀信息', enabled: true },
+];
+const DEFAULT_PAYMENT_KEYWORDS = [
+  '支付成功',
+  '付款成功',
+  '扣款成功',
+  '交易成功',
+  '已支付',
+  '消费',
+  '支出',
+];
 
 // AI 模型配置编辑弹窗
 interface AIConfigModalProps {
@@ -513,11 +531,9 @@ export default function GeneralSettingsScreen({ navigation }: GeneralSettingsScr
 
   // 基础配置
   const [config, setConfig] = useState<AppConfig>({
-    monitoredApps: [
-      { id: '1', packageName: 'com.tencent.mm', appName: '微信', enabled: true },
-      { id: '2', packageName: 'com.eg.android.AlipayGphone', appName: '支付宝', enabled: true },
-    ],
-    filterKeywords: ['支付', '付款', '消费', '扣款', '支出', '交易提醒', '花呗', '余额宝', '已支付'],
+    monitoredApps: DEFAULT_MONITORED_APPS.map(app => ({ ...app })),
+    filterKeywords: [...DEFAULT_PAYMENT_KEYWORDS],
+    configVersion: PAYMENT_CONFIG_VERSION,
   });
 
   // AI 模型配置
@@ -549,7 +565,34 @@ export default function GeneralSettingsScreen({ navigation }: GeneralSettingsScr
     try {
       const savedConfig = await AsyncStorage.getItem('appGeneralConfig');
       if (savedConfig) {
-        setConfig(JSON.parse(savedConfig));
+        const parsed = JSON.parse(savedConfig) as Partial<AppConfig>;
+        const savedApps = Array.isArray(parsed.monitoredApps) ? parsed.monitoredApps : [];
+        const monitoredApps = parsed.configVersion === PAYMENT_CONFIG_VERSION
+          ? savedApps
+          : [
+              ...savedApps,
+              ...DEFAULT_MONITORED_APPS.filter(
+                defaultApp => !savedApps.some(app => app.packageName === defaultApp.packageName)
+              ),
+            ];
+        const normalizedConfig: AppConfig = {
+          monitoredApps,
+          filterKeywords: Array.isArray(parsed.filterKeywords) && parsed.filterKeywords.length > 0
+            ? parsed.filterKeywords
+            : [...DEFAULT_PAYMENT_KEYWORDS],
+          configVersion: PAYMENT_CONFIG_VERSION,
+        };
+        setConfig(normalizedConfig);
+        await AsyncStorage.setItem('appGeneralConfig', JSON.stringify(normalizedConfig));
+        await paymentNotificationService.saveMonitoringConfig(
+          normalizedConfig.monitoredApps,
+          normalizedConfig.filterKeywords
+        );
+      } else {
+        await paymentNotificationService.saveMonitoringConfig(
+          DEFAULT_MONITORED_APPS,
+          DEFAULT_PAYMENT_KEYWORDS
+        );
       }
     } catch (error) {
       console.error('加载配置失败:', error);

@@ -130,7 +130,7 @@ class BillApiService(private val context: Context) {
      */
     fun createBill(
         amount: Double,
-        categoryId: Int,
+        categoryId: Int?,
         description: String?,
         callback: (Boolean, String?) -> Unit
     ) {

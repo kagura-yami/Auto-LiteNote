@@ -5,7 +5,7 @@
 /**
  * 支付来源类型
  */
-export type PaymentSource = 'wechat' | 'alipay' | 'unknown';
+export type PaymentSource = 'wechat' | 'alipay' | 'pinduoduo' | 'bank_sms' | 'unknown';
 
 /**
  * 权限状态类型

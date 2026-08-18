@@ -13,9 +13,6 @@
     <!-- 接收开机广播权限（可选，用于开机自启） -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- 悬浮窗权限（用于在其他 App 上显示支付提醒） -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
     <!-- 查询所有应用权限（用于应用选择器） -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
@@ -24,6 +21,20 @@
 
     <!-- 麦克风权限（用于语音录制） -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- MagicOS 等系统会额外限制应用可见性，显式声明常用支付与短信应用 -->
+    <queries>
+        <package android:name="com.tencent.mm" />
+        <package android:name="com.eg.android.AlipayGphone" />
+        <package android:name="com.xunmeng.pinduoduo" />
+        <package android:name="com.hihonor.mms" />
+        <package android:name="com.android.mms" />
+        <package android:name="com.google.android.apps.messaging" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
       android:name=".MainApplication"
@@ -60,7 +71,7 @@
           </intent-filter>
           <meta-data
               android:name="android.service.notification.default_filter_types"
-              android:value="alerting" />
+              android:value="conversations|alerting|silent|ongoing" />
       </service>
       
       <!-- Headless JS 服务（用于后台处理支付通知） -->

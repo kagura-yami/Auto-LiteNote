@@ -1515,6 +1515,7 @@ export default function AIChatScreen() {
       {
         content: text || '请描述这张图片',
         sessionId: sessionId || undefined,
+        configId: defaultAIConfig?.id,
         imageBase64List: images.length > 0 ? images : undefined,
       },
       {

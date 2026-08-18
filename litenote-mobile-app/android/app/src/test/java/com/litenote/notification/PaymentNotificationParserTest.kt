@@ -1,0 +1,106 @@
+package com.litenote.notification
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
+import org.junit.Test
+
+class PaymentNotificationParserTest {
+
+    @Test
+    fun `普通微信聊天包含支付金额时不触发`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.WECHAT_PACKAGE,
+                title = "张三",
+                text = "张三: 支付100元"
+            )
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `微信支付官方通知可以识别`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.WECHAT_PACKAGE,
+                title = "微信支付",
+                text = "付款成功 ¥100.00"
+            )
+        )
+
+        assertNotNull(result)
+        assertEquals(100.0, result!!.amount, 0.001)
+        assertEquals("wechat", result.source)
+    }
+
+    @Test
+    fun `拼多多价格广告不会触发`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.PINDUODUO_PACKAGE,
+                title = "百亿补贴",
+                text = "爆款低至￥99.00"
+            )
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `拼多多付款成功自动归类购物`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = PaymentNotificationParser.PINDUODUO_PACKAGE,
+                title = "订单通知",
+                text = "订单付款成功，实付￥88.50"
+            )
+        )
+
+        assertNotNull(result)
+        assertEquals(88.5, result!!.amount, 0.001)
+        assertEquals("购物", result.categoryHint)
+    }
+
+    @Test
+    fun `银行卡消费短信优先提取消费额而非余额`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = "com.hihonor.mms",
+                title = "95588",
+                text = "您尾号1234卡消费人民币25.60元，账户余额人民币1,000.00元。"
+            )
+        )
+
+        assertNotNull(result)
+        assertEquals(25.6, result!!.amount, 0.001)
+        assertEquals("bank_sms", result.source)
+    }
+
+    @Test
+    fun `银行卡入账短信不会记为支出`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = "com.hihonor.mms",
+                title = "95588",
+                text = "您尾号1234账户收入人民币500.00元，已到账。"
+            )
+        )
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `普通短信伪造支付文案不会触发`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = "com.hihonor.mms",
+                title = "张三",
+                text = "支付成功100元"
+            )
+        )
+
+        assertNull(result)
+    }
+}

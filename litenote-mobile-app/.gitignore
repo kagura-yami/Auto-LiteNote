@@ -78,6 +78,10 @@ yarn-error.log
 .env.local
 .env.production
 
+# Android release signing secrets
+android/keystore.properties
+android/app/litenote-release.keystore
+
 # IDE
 .vscode/
 .idea/
