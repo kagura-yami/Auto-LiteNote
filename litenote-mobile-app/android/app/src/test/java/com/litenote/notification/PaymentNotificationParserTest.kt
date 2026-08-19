@@ -152,6 +152,23 @@ class PaymentNotificationParserTest {
     }
 
     @Test
+    fun `系统短信服务进程的工商银行支出短信可以识别`() {
+        val result = PaymentNotificationParser.parse(
+            PaymentNotificationContent(
+                packageName = "com.android.mms.service",
+                title = "95588",
+                text = "尾号3343卡8月19日09:06支出(消费财付通-链动小铺)30.65元，余额4,635.32元。【工商银行】"
+            )
+        )
+
+        assertNotNull(result)
+        assertEquals(30.65, result!!.amount, 0.001)
+        assertEquals("bank_sms", result.source)
+        assertEquals("财付通", result.paymentChannel)
+        assertEquals("链动小铺", result.counterparty)
+    }
+
+    @Test
     fun `银行卡入账短信不会记为支出`() {
         val result = PaymentNotificationParser.parse(
             PaymentNotificationContent(

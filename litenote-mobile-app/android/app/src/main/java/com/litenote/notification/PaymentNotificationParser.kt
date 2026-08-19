@@ -18,6 +18,8 @@ object PaymentNotificationParser {
     val SMS_PACKAGES = setOf(
         "com.hihonor.mms",
         "com.android.mms",
+        // 部分厂商将通知实际交由短信服务进程发布，而不是主短信应用。
+        "com.android.mms.service",
         "com.google.android.apps.messaging"
     )
 

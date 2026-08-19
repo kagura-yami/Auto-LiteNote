@@ -123,8 +123,8 @@ android {
         applicationId "com.litenote"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 35
-        versionName "0.0.15"
+        versionCode 36
+        versionName "0.0.16"
     }
     signingConfigs {
         debug {
