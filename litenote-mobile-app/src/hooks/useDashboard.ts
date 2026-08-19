@@ -13,6 +13,8 @@ interface DashboardData {
   monthIncome: number;
   monthExpense: number;
   monthBalance: number;
+  todayExpense: number;
+  todayIncome: number;
 }
 
 /**
@@ -35,12 +37,19 @@ async function fetchDashboardData(month: string): Promise<DashboardData> {
       startDate: monthStartStr,
       endDate: todayStr,
     }),
-    billsService.getBills({ limit: 10 }),
+    billsService.getBills({
+      startDate: monthStartStr,
+      endDate: todayStr,
+      limit: 100,
+      orderBy: 'date',
+      orderDirection: 'desc',
+    }),
   ]);
 
   const stats = statsResponse.data;
   const monthIncome = stats?.totalIncome || 0;
   const monthExpense = stats?.totalExpense || 0;
+  const todayTrend = stats?.dailyTrends?.find((item) => item.date === todayStr);
 
   return {
     statistics: stats || null,
@@ -48,6 +57,8 @@ async function fetchDashboardData(month: string): Promise<DashboardData> {
     monthIncome,
     monthExpense,
     monthBalance: monthIncome - monthExpense,
+    todayExpense: todayTrend?.expense || 0,
+    todayIncome: todayTrend?.income || 0,
   };
 }
 
@@ -77,6 +88,8 @@ export function useDashboard(enabled: boolean = true) {
     monthIncome: query.data?.monthIncome ?? 0,
     monthExpense: query.data?.monthExpense ?? 0,
     monthBalance: query.data?.monthBalance ?? 0,
+    todayExpense: query.data?.todayExpense ?? 0,
+    todayIncome: query.data?.todayIncome ?? 0,
 
     // 状态
     isLoading: query.isLoading,

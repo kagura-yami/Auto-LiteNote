@@ -44,6 +44,7 @@ class PaymentNotificationParserTest {
         assertNotNull(result)
         assertEquals(100.0, result!!.amount, 0.001)
         assertEquals("wechat", result.source)
+        assertEquals("微信支付", result.paymentChannel)
     }
 
     @Test
@@ -75,6 +76,8 @@ class PaymentNotificationParserTest {
         assertNotNull(result)
         assertEquals(916.0, result!!.amount, 0.001)
         assertEquals("alipay", result.source)
+        assertEquals("手插裤袋没人爱(**娃)", result.counterparty)
+        assertEquals("支付宝", result.paymentChannel)
     }
 
     @Test
@@ -189,6 +192,8 @@ class PaymentNotificationParserTest {
         assertEquals(15.39, result!!.amount, 0.001)
         assertEquals("bank_app", result.source)
         assertEquals("购物", result.categoryHint)
+        assertEquals("财付通", result.paymentChannel)
+        assertEquals("拼多多平台商户", result.counterparty)
     }
 
     @Test

@@ -132,21 +132,31 @@ class BillApiService(private val context: Context) {
         amount: Double,
         categoryId: Int?,
         description: String?,
+        paymentChannel: String? = null,
+        counterparty: String? = null,
+        sourceApp: String? = null,
+        occurredAt: Long = System.currentTimeMillis(),
         callback: (Boolean, String?) -> Unit
     ) {
         val url = "${getBaseUrl()}/bills"
         Log.d(TAG, "创建账单: $url, 金额=$amount, 分类=$categoryId")
 
         // 构建请求体
+        val eventDate = Date(occurredAt.takeIf { it > 0 } ?: System.currentTimeMillis())
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val today = dateFormat.format(Date())
+        val isoTimeFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US)
 
         val requestBody = CreateBillRequest(
             amount = amount,
             type = "expense",
             categoryId = categoryId,
             description = description,
-            date = today
+            date = dateFormat.format(eventDate),
+            time = isoTimeFormat.format(eventDate),
+            paymentChannel = paymentChannel,
+            counterparty = counterparty,
+            source = "notification",
+            sourceApp = sourceApp
         )
 
         val jsonBody = gson.toJson(requestBody)

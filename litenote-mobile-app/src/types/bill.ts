@@ -11,6 +11,11 @@ export interface BillData {
   type: 'income' | 'expense';
   description?: string;
   date: string;
+  time?: string;
+  paymentChannel?: string;
+  counterparty?: string;
+  source?: string;
+  sourceApp?: string;
   categoryId?: number;
   userId: string;
   createdAt: string;
@@ -23,6 +28,11 @@ export interface CreateBillDto {
   type: 'income' | 'expense';
   description?: string;
   date: string;
+  time?: string;
+  paymentChannel?: string;
+  counterparty?: string;
+  source?: string;
+  sourceApp?: string;
   categoryId?: number;
 }
 
@@ -31,6 +41,9 @@ export interface UpdateBillDto {
   type?: 'income' | 'expense';
   description?: string;
   date?: string;
+  time?: string;
+  paymentChannel?: string;
+  counterparty?: string;
   categoryId?: number;
 }
 

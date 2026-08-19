@@ -43,7 +43,12 @@ class AutoBillRecorder(context: Context) {
      *
      * @return true 表示新事件已入队，false 表示被去重。
      */
-    fun enqueue(packageName: String, rawContent: String, match: PaymentMatch): Boolean {
+    fun enqueue(
+        packageName: String,
+        rawContent: String,
+        match: PaymentMatch,
+        occurredAt: Long = System.currentTimeMillis()
+    ): Boolean {
         val now = System.currentTimeMillis()
         val fingerprint = sha256(
             listOf(packageName, match.amount.toString(), normalize(rawContent)).joinToString("|")
@@ -82,6 +87,9 @@ class AutoBillRecorder(context: Context) {
                 source = match.source,
                 categoryHint = match.categoryHint,
                 description = match.description.take(200),
+                paymentChannel = match.paymentChannel.take(50),
+                counterparty = match.counterparty?.take(200),
+                occurredAt = occurredAt,
                 createdAt = now,
                 nextAttemptAt = now
             )
@@ -109,7 +117,11 @@ class AutoBillRecorder(context: Context) {
             apiService.createBill(
                 amount = record.amount,
                 categoryId = category?.id,
-                description = record.description
+                description = record.description,
+                paymentChannel = record.paymentChannel,
+                counterparty = record.counterparty,
+                sourceApp = record.source,
+                occurredAt = record.occurredAt
             ) { success, errorMessage ->
                 if (success) {
                     handleSuccess(record, category)
@@ -226,6 +238,9 @@ private data class PendingAutoBill(
     val source: String,
     val categoryHint: String?,
     val description: String,
+    val paymentChannel: String = "电子支付",
+    val counterparty: String? = null,
+    val occurredAt: Long = 0,
     val createdAt: Long,
     val retryCount: Int = 0,
     val nextAttemptAt: Long

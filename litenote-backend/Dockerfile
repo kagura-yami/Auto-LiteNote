@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 COPY . .
 RUN npm run build
@@ -13,11 +13,14 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 
-# 只复制生产运行所需的文件
+# 只安装生产运行依赖
+COPY package*.json ./
+COPY prisma ./prisma
+RUN npm ci --omit=dev --legacy-peer-deps \
+    && npm cache clean --force
+
+# 只复制生产运行所需的构建产物
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./
 
 # 创建持久化目录
 RUN mkdir -p uploads/avatars public/downloads

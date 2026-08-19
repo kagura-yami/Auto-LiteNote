@@ -59,6 +59,42 @@ export class CreateBillDto {
   date: string;
 
   @ApiProperty({
+    description: '交易发生的具体时间',
+    example: '2026-08-19T10:30:00.000Z',
+    required: false,
+  })
+  @IsOptional()
+  @IsDateString({}, { message: '交易时间格式不正确' })
+  time?: string;
+
+  @ApiProperty({ description: '支付渠道', example: '微信支付', required: false })
+  @IsOptional()
+  @IsString({ message: '支付渠道必须是字符串' })
+  @MaxLength(50, { message: '支付渠道长度不能超过50个字符' })
+  paymentChannel?: string;
+
+  @ApiProperty({ description: '交易对象或商户', example: '某某便利店', required: false })
+  @IsOptional()
+  @IsString({ message: '交易对象必须是字符串' })
+  @MaxLength(200, { message: '交易对象长度不能超过200个字符' })
+  counterparty?: string;
+
+  @ApiProperty({
+    description: '记账方式',
+    enum: ['manual', 'voice', 'ocr', 'text', 'notification'],
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(['manual', 'voice', 'ocr', 'text', 'notification'], { message: '记账方式不正确' })
+  source?: string;
+
+  @ApiProperty({ description: '自动记账来源应用', example: 'wechat', required: false })
+  @IsOptional()
+  @IsString({ message: '自动记账来源应用必须是字符串' })
+  @MaxLength(50, { message: '自动记账来源应用长度不能超过50个字符' })
+  sourceApp?: string;
+
+  @ApiProperty({
     description: '分类ID',
     example: 1,
     required: false,
@@ -108,6 +144,23 @@ export class UpdateBillDto {
   @IsOptional()
   @IsDateString({}, { message: '日期格式不正确' })
   date?: string;
+
+  @ApiProperty({ description: '交易发生的具体时间', required: false })
+  @IsOptional()
+  @IsDateString({}, { message: '交易时间格式不正确' })
+  time?: string;
+
+  @ApiProperty({ description: '支付渠道', required: false })
+  @IsOptional()
+  @IsString({ message: '支付渠道必须是字符串' })
+  @MaxLength(50, { message: '支付渠道长度不能超过50个字符' })
+  paymentChannel?: string;
+
+  @ApiProperty({ description: '交易对象或商户', required: false })
+  @IsOptional()
+  @IsString({ message: '交易对象必须是字符串' })
+  @MaxLength(200, { message: '交易对象长度不能超过200个字符' })
+  counterparty?: string;
 
   @ApiProperty({ description: '分类ID', example: 1, required: false })
   @IsOptional()

@@ -128,7 +128,8 @@ class PaymentNotificationService : NotificationListenerService() {
             val queued = autoBillRecorder.enqueue(
                 packageName = sbn.packageName,
                 rawContent = content.allContent(),
-                match = match
+                match = match,
+                occurredAt = sbn.postTime.takeIf { it > 0 } ?: System.currentTimeMillis()
             )
             if (queued) {
                 SentryLogger.addBreadcrumb(

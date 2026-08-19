@@ -76,21 +76,41 @@ export default function BillDetailScreen() {
     );
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('zh-CN', {
+  const formatBillDateTime = () => {
+    const value = bill?.time || bill?.date || bill?.createdAt || '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return '--';
+    }
+    return `${parsed.toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-    });
-  };
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString('zh-CN', {
+    })} ${parsed.toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
-    });
+      hour12: false,
+    })}`;
+  };
+
+  const getSourceLabel = () => {
+    const labels: Record<string, string> = {
+      wechat: '微信通知自动记账',
+      alipay: '支付宝通知自动记账',
+      pinduoduo: '拼多多通知自动记账',
+      bank_sms: '银行卡短信自动记账',
+      bank_app: '银行应用自动记账',
+    };
+
+    if (bill?.sourceApp && labels[bill.sourceApp]) {
+      return labels[bill.sourceApp];
+    }
+
+    if (bill?.source === 'notification') {
+      return '通知自动记账';
+    }
+
+    return '手动记账';
   };
 
   if (loading) {
@@ -142,7 +162,24 @@ export default function BillDetailScreen() {
           <View style={styles.divider} />
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>时间</Text>
-            <Text style={styles.detailValueCourier}>{`${formatDate(bill.date)} ${formatTime(bill.createdAt)}`}</Text>
+            <Text style={styles.detailValueCourier}>{formatBillDateTime()}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>渠道</Text>
+            <Text style={styles.detailValue}>{bill.paymentChannel || '未提供'}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>对象</Text>
+            <Text style={styles.detailValue} numberOfLines={2}>
+              {bill.counterparty || '交易对象未提供'}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>来源</Text>
+            <Text style={styles.detailValue}>{getSourceLabel()}</Text>
           </View>
           {bill.description && (
             <>
@@ -286,12 +323,15 @@ const createStyles = (colors: ThemeColors) => ({
       fontSize: 14,
       fontWeight: '700',
       color: colors.textPrimary,
+      flexShrink: 1,
+      textAlign: 'right',
     },
     detailValueCourier: {
       fontSize: 14,
       fontWeight: '700',
       fontFamily: 'Courier',
       color: colors.textPrimary,
+      textAlign: 'right',
     },
     divider: {
       height: borderWidth.thin,

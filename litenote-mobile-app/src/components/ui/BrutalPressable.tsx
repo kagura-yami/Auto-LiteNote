@@ -14,6 +14,7 @@ import {
   ViewStyle,
   StyleSheet,
   StyleProp,
+  type AccessibilityRole,
 } from 'react-native';
 
 interface BrutalPressableProps {
@@ -26,6 +27,9 @@ interface BrutalPressableProps {
   shadowOffset?: number;
   /** 动画时长 (ms)，默认 120 */
   duration?: number;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityRole?: AccessibilityRole;
 }
 
 export default function BrutalPressable({
@@ -35,6 +39,9 @@ export default function BrutalPressable({
   shadowColor = '#1A1A1A',
   shadowOffset = 4,
   duration = 120,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityRole = 'button',
 }: BrutalPressableProps) {
   const pressAnim = useRef(new Animated.Value(0)).current;
 
@@ -87,6 +94,9 @@ export default function BrutalPressable({
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityRole={accessibilityRole}
       >
         <Animated.View
           style={[

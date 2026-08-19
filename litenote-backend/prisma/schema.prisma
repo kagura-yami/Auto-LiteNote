@@ -88,6 +88,8 @@ model Bill {
   description String?   @db.Text                                                 // 账单描述/备注，可选
   date        DateTime  @db.Date                                                 // 账单日期
   time        DateTime? @db.Timestamptz(6)                                       // 具体时间，可选
+  paymentChannel String? @map("payment_channel") @db.VarChar(50)                 // 支付渠道，如微信支付、支付宝、银行卡
+  counterparty String?   @db.VarChar(200)                                         // 交易对象/商户，可选
   categoryId  Int?      @map("category_id")                                      // 关联分类ID，可选
   accountId   Int?      @map("account_id")                                       // 关联账户ID，可选
   userId      String    @map("user_id") @db.Uuid                                 // 所属用户ID，必填
@@ -95,6 +97,7 @@ model Bill {
   notes       String?   @db.Text                                                 // 备注，可选
   receiptUrl  String?   @map("receipt_url") @db.Text                             // 收据图片URL，可选
   source      String    @default("manual") @db.VarChar(20)                       // 来源：manual/voice/ocr/text/notification
+  sourceApp   String?   @map("source_app") @db.VarChar(50)                       // 自动记账来源应用：wechat/alipay/bank_sms 等
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)   // 创建时间
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)        // 更新时间
 

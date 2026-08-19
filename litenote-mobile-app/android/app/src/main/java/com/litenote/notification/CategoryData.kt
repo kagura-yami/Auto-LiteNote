@@ -28,5 +28,10 @@ data class CreateBillRequest(
     val type: String,
     val categoryId: Int?,
     val description: String?,
-    val date: String
+    val date: String,
+    val time: String?,
+    val paymentChannel: String?,
+    val counterparty: String?,
+    val source: String,
+    val sourceApp: String?
 )

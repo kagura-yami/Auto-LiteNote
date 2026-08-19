@@ -82,12 +82,16 @@ object PaymentNotificationParser {
         } else {
             inferCategory(content)
         }
+        val paymentChannel = inferPaymentChannel(source, content)
+        val counterparty = extractCounterparty(data, source)
 
         return PaymentMatch(
             amount = amount,
             source = source,
             categoryHint = categoryHint,
-            description = "自动记账 · ${sourceLabel(source)}"
+            description = counterparty ?: "自动记账 · $paymentChannel",
+            paymentChannel = paymentChannel,
+            counterparty = counterparty
         )
     }
 
@@ -199,6 +203,77 @@ object PaymentNotificationParser {
         }?.key
     }
 
+    private fun inferPaymentChannel(source: String, content: String): String {
+        return when (source.lowercase(Locale.ROOT)) {
+            "wechat" -> "微信支付"
+            "alipay" -> "支付宝"
+            "pinduoduo" -> "拼多多"
+            "bank_sms", "bank_app" -> when {
+                content.contains("财付通") -> "财付通"
+                content.contains("支付宝") -> "支付宝"
+                content.contains("微信支付") -> "微信支付"
+                content.contains("云闪付") -> "云闪付"
+                content.contains("京东支付") -> "京东支付"
+                else -> "银行卡"
+            }
+            else -> sourceLabel(source)
+        }
+    }
+
+    /**
+     * 优先从单个通知字段提取交易对象，避免把拼接后的标题、金额和重复文案一起存入。
+     * 无法可靠提取时返回 null，由界面明确显示“交易对象未提供”。
+     */
+    private fun extractCounterparty(data: PaymentNotificationContent, source: String): String? {
+        val directPatterns = when (source.lowercase(Locale.ROOT)) {
+            "wechat" -> listOf(
+                Regex("""(?:付款给|支付给|转账给)\s*(.+)""")
+            )
+            "alipay" -> listOf(
+                Regex("""(?:付款给|支付给|转账给)\s*(.+)"""),
+                Regex("""(?:收款方|交易对象|商户(?:名称)?|商家)\s*[：:]\s*(.+)""")
+            )
+            "bank_sms", "bank_app" -> listOf(
+                Regex("""(?:支出|消费)\s*[（(]([^()（）]+)[)）]"""),
+                Regex("""(?:付款给|支付给|转账给|收款方|交易对象|商户(?:名称)?|商家)\s*[：:]\s*(.+)"""),
+                Regex("""(?:在|于)\s*([^，,。；;]{2,60})\s*(?:消费|支付)""")
+            )
+            else -> listOf(
+                Regex("""(?:付款给|支付给|转账给|收款方|交易对象|商户(?:名称)?|商家)\s*[：:]\s*(.+)"""),
+                Regex("""(?:支出|消费)\s*[（(]([^()（）]+)[)）]"""),
+                Regex("""(?:在|于)\s*([^，,。；;]{2,60})\s*(?:消费|支付)""")
+            )
+        }
+
+        data.contentParts().forEach { part ->
+            directPatterns.forEach { pattern ->
+                val captured = pattern.find(part)?.groupValues?.getOrNull(1)
+                sanitizeCounterparty(captured)?.let { return it }
+            }
+        }
+
+        if (source == "pinduoduo") {
+            return "拼多多平台商户"
+        }
+        return null
+    }
+
+    private fun sanitizeCounterparty(value: String?): String? {
+        if (value.isNullOrBlank()) return null
+
+        val cleaned = value
+            .trim()
+            .replace(Regex("""^(?:消费|支出|快捷支付)\s*"""), "")
+            .replace(Regex("""^(?:财付通|支付宝|微信支付|云闪付|京东支付)\s*[-－—]\s*"""), "")
+            .replace(Regex("""\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s*元$"""), "")
+            .replace(Regex("""[，,。；;]\s*(?:余额|可用余额|账户余额).*$"""), "")
+            .trim(' ', '-', '－', '—', '：', ':')
+            .take(200)
+
+        val ignored = listOf("微信支付", "支付宝", "支付助手", "交易提醒", "订单通知", "动账通知")
+        return cleaned.takeIf { it.length >= 2 && it !in ignored }
+    }
+
     private fun sanitizeKeywords(keywords: List<String>): List<String> {
         return keywords.map(String::trim).filter { it.length >= 2 }
     }
@@ -229,12 +304,15 @@ data class PaymentNotificationContent(
     val tickerText: String = "",
     val channelId: String = ""
 ) {
-    fun allContent(): String {
-        return listOf(title, titleBig, text, subText, summaryText, bigText, infoText, tickerText)
+    fun contentParts(): List<String> {
+        return listOf(bigText, text, tickerText, summaryText, infoText, titleBig, subText, title)
             .map(String::trim)
             .filter(String::isNotBlank)
             .distinct()
-            .joinToString(" ")
+    }
+
+    fun allContent(): String {
+        return contentParts().joinToString(" ")
     }
 }
 
@@ -242,5 +320,7 @@ data class PaymentMatch(
     val amount: Double,
     val source: String,
     val categoryHint: String?,
-    val description: String
+    val description: String,
+    val paymentChannel: String,
+    val counterparty: String?
 )

@@ -41,7 +41,18 @@ export class BillsService {
    * 创建账单
    */
   async create(userId: string, createBillDto: CreateBillWithUserDto) {
-    const { amount, type, description, date, categoryId } = createBillDto;
+    const {
+      amount,
+      type,
+      description,
+      date,
+      time,
+      paymentChannel,
+      counterparty,
+      source,
+      sourceApp,
+      categoryId,
+    } = createBillDto;
 
     // 确保用户存在，如果不存在则创建
     await this.ensureUserExists(userId);
@@ -52,6 +63,11 @@ export class BillsService {
         type,
         description,
         date: new Date(date),
+        time: time ? new Date(time) : new Date(),
+        paymentChannel,
+        counterparty,
+        source: source || 'manual',
+        sourceApp,
         categoryId,
         userId,
       },
@@ -120,9 +136,13 @@ export class BillsService {
         include: {
           category: true,
         },
-        orderBy: {
-          [orderBy]: orderDirection,
-        },
+        orderBy: orderBy === 'date'
+          ? [
+              { date: orderDirection },
+              { time: orderDirection },
+              { createdAt: orderDirection },
+            ]
+          : { [orderBy]: orderDirection },
         skip,
         take: limit,
       }),
@@ -218,6 +238,15 @@ export class BillsService {
     }
     if (updateBillDto.date !== undefined) {
       updateData.date = new Date(updateBillDto.date);
+    }
+    if (updateBillDto.time !== undefined) {
+      updateData.time = new Date(updateBillDto.time);
+    }
+    if (updateBillDto.paymentChannel !== undefined) {
+      updateData.paymentChannel = updateBillDto.paymentChannel;
+    }
+    if (updateBillDto.counterparty !== undefined) {
+      updateData.counterparty = updateBillDto.counterparty;
     }
     if (updateBillDto.categoryId !== undefined) {
       updateData.categoryId = updateBillDto.categoryId;

@@ -228,7 +228,7 @@ export default function DashboardScreen() {
     recentBills,
     monthIncome,
     monthExpense,
-    monthBalance,
+    todayExpense,
     isLoading,
     isFetching,
     refetch,
@@ -295,6 +295,69 @@ export default function DashboardScreen() {
   const monthName = `${currentDate.getMonth() + 1}月账本`;
   const yearName = `${currentDate.getFullYear()}`;
 
+  const dayGroups = useMemo(() => {
+    const groups = new Map<string, BillData[]>();
+    recentBills.forEach((bill) => {
+      const sourceDate = bill.time || bill.date || bill.createdAt;
+      const parsed = new Date(sourceDate);
+      const key = Number.isNaN(parsed.getTime())
+        ? bill.date
+        : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+      const current = groups.get(key) || [];
+      current.push(bill);
+      groups.set(key, current);
+    });
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, bills]) => ({
+        date,
+        bills: bills.sort((a, b) => {
+          const aTime = new Date(a.time || a.createdAt || a.date).getTime();
+          const bTime = new Date(b.time || b.createdAt || b.date).getTime();
+          return bTime - aTime;
+        }),
+        expense: bills.filter((bill) => bill.type === 'expense').reduce((sum, bill) => sum + Number(bill.amount), 0),
+        income: bills.filter((bill) => bill.type === 'income').reduce((sum, bill) => sum + Number(bill.amount), 0),
+      }));
+  }, [recentBills]);
+
+  const formatBillTime = (bill: BillData) => {
+    const value = bill.time || bill.createdAt;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime())
+      ? '--:--'
+      : parsed.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  const formatGroupDate = (date: string) => {
+    const parsed = new Date(`${date}T12:00:00`);
+    const isToday = date === `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+    return `${parsed.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}${isToday ? ' 今天' : ''}`;
+  };
+
+  const getAutoSourceLabel = (bill: BillData) => {
+    const legacyDescription = bill.description || '';
+    if (bill.source !== 'notification' && !legacyDescription.startsWith('自动记账')) return '手动记账';
+    const labels: Record<string, string> = {
+      wechat: '微信通知自动记账',
+      alipay: '支付宝通知自动记账',
+      pinduoduo: '拼多多通知自动记账',
+      bank_sms: '银行卡短信自动记账',
+      bank_app: '银行应用自动记账',
+    };
+    if (labels[bill.sourceApp || '']) return labels[bill.sourceApp || ''];
+    if (legacyDescription.includes('微信')) return labels.wechat;
+    if (legacyDescription.includes('支付宝')) return labels.alipay;
+    return bill.source === 'notification' ? '通知自动记账' : '自动记账';
+  };
+
+  const getCounterparty = (bill: BillData) => {
+    if (bill.counterparty) return bill.counterparty;
+    if (bill.source !== 'notification' && bill.description) return bill.description;
+    return '交易对象未提供';
+  };
+
   const onRefresh = useCallback(async () => {
     await Promise.all([refetch(), refetchBudgets(), refetchGoals()]);
   }, [refetch, refetchBudgets, refetchGoals]);
@@ -316,7 +379,7 @@ export default function DashboardScreen() {
   };
 
   const handleViewBillDetail = (bill: BillData) => {
-    navigation.navigate('CreateBill', { bill });
+    navigation.navigate('BillDetail', { billId: bill.id } as never);
   };
 
   // 分类图标
@@ -380,8 +443,9 @@ export default function DashboardScreen() {
           <Text style={styles.stickerText}>⚡</Text>
         </View>
         <View style={styles.overviewContent}>
-          <Text style={styles.overviewLabel}>本月结余</Text>
-          <Text style={styles.overviewBalance}>¥ {monthBalance.toFixed(2)}</Text>
+          <Text style={styles.overviewLabel}>今日支出</Text>
+          <Text style={styles.overviewBalance}>¥ {todayExpense.toFixed(2)}</Text>
+          <Text style={styles.overviewMonthHint}>本月收支</Text>
 
           <View style={styles.overviewDivider} />
 
@@ -391,7 +455,7 @@ export default function DashboardScreen() {
                 <Text style={styles.statIcon}>↘</Text>
               </View>
               <View>
-                <Text style={styles.statLabel}>总支出</Text>
+              <Text style={styles.statLabel}>支出</Text>
                 <Text style={styles.statValue}>¥ {monthExpense.toFixed(2)}</Text>
               </View>
             </TouchableOpacity>
@@ -400,8 +464,8 @@ export default function DashboardScreen() {
                 <Text style={styles.statIcon}>↗</Text>
               </View>
               <View>
-                <Text style={styles.statLabel}>总收入</Text>
-                <Text style={styles.statValue}>¥ {monthIncome.toFixed(2)}</Text>
+              <Text style={styles.statLabel}>收入</Text>
+              <Text style={styles.statValue}>¥ {monthIncome.toFixed(2)}</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -446,47 +510,62 @@ export default function DashboardScreen() {
           </BrutalPressable>
         </View>
 
-        {recentBills.length > 0 ? (
+        {dayGroups.length > 0 ? (
           <View style={styles.transactionList}>
-            {recentBills.map((bill, index) => (
-              <AnimatedListItem key={bill.id} index={index}>
-                <BrutalPressable
-                  style={styles.transactionItem}
-                  shadowOffset={3}
-                  shadowColor={styles._colors.stroke}
-                  onPress={() => handleViewBillDetail(bill)}
-                >
-                  <View style={styles.transactionLeft}>
-                    <View style={[
-                      styles.transactionIcon,
-                      { backgroundColor: getCategoryBlockColor(bill.category?.name) },
-                    ]}>
-                      <Text style={styles.transactionIconText}>
-                        {bill.category?.icon || getCategoryIcon(bill.category?.name)}
-                      </Text>
-                    </View>
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionTitle}>
-                        {bill.description || bill.category?.name || '未分类'}
-                      </Text>
-                      <Text style={styles.transactionMeta}>
-                        {new Date(bill.date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })} · {bill.category?.name || '未分类'}
-                      </Text>
-                    </View>
+            {dayGroups.map((group, groupIndex) => (
+              <View key={group.date} style={styles.dayGroup}>
+                <View style={styles.dayHeader}>
+                  <Text style={styles.dayTitle}>{formatGroupDate(group.date)}</Text>
+                  <View style={styles.dayTotals}>
+                    <Text style={styles.dayExpense}>支 ¥{group.expense.toFixed(2)}</Text>
+                    <Text style={styles.dayIncome}>收 ¥{group.income.toFixed(2)}</Text>
                   </View>
-                  <View style={[
-                    styles.amountBadge,
-                    bill.type === 'income' ? styles.incomeBadge : styles.expenseBadge,
-                  ]}>
-                    <Text style={[
-                      styles.transactionAmount,
-                      bill.type === 'income' ? styles.incomeAmount : styles.expenseAmount,
-                    ]}>
-                      {bill.type === 'income' ? '+' : '-'}¥{Number(bill.amount).toFixed(2)}
-                    </Text>
-                  </View>
-                </BrutalPressable>
-              </AnimatedListItem>
+                </View>
+                {group.bills.map((bill, index) => (
+                  <AnimatedListItem key={bill.id} index={groupIndex + index}>
+                    <BrutalPressable
+                      style={styles.transactionItem}
+                      shadowOffset={2}
+                      shadowColor={styles._colors.stroke}
+                      onPress={() => handleViewBillDetail(bill)}
+                      accessibilityLabel={`${bill.type === 'income' ? '收入' : '支出'} ${Number(bill.amount).toFixed(2)} 元，${getCounterparty(bill)}`}
+                    >
+                      <View style={styles.transactionLeft}>
+                        <View style={[
+                          styles.transactionIcon,
+                          { backgroundColor: getCategoryBlockColor(bill.category?.name) },
+                        ]}>
+                          <Text style={styles.transactionIconText}>
+                            {bill.category?.icon || getCategoryIcon(bill.category?.name)}
+                          </Text>
+                        </View>
+                        <View style={styles.transactionInfo}>
+                          <View style={styles.transactionTitleRow}>
+                            <Text style={styles.transactionTitle} numberOfLines={1}>
+                              {bill.category?.name || (bill.type === 'income' ? '收入' : '支出')}
+                            </Text>
+                            <Text style={styles.sourceBadge}>{getAutoSourceLabel(bill)}</Text>
+                          </View>
+                          <Text style={styles.transactionMeta} numberOfLines={1}>
+                            {formatBillTime(bill)} · {bill.paymentChannel || getAutoSourceLabel(bill).replace('通知', '').replace('自动记账', '')} · {getCounterparty(bill)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={[
+                        styles.amountBadge,
+                        bill.type === 'income' ? styles.incomeBadge : styles.expenseBadge,
+                      ]}>
+                        <Text style={[
+                          styles.transactionAmount,
+                          bill.type === 'income' ? styles.incomeAmount : styles.expenseAmount,
+                        ]}>
+                          {bill.type === 'income' ? '+' : '-'}¥{Number(bill.amount).toFixed(2)}
+                        </Text>
+                      </View>
+                    </BrutalPressable>
+                  </AnimatedListItem>
+                ))}
+              </View>
             ))}
           </View>
         ) : (
@@ -590,6 +669,12 @@ const createStyles = (colors: ThemeColors) => ({
       color: '#FFFFFF',
       marginTop: spacing.sm,
       letterSpacing: -1.5,
+    },
+    overviewMonthHint: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: 'rgba(255, 255, 255, 0.72)',
+      marginTop: spacing.xs,
     },
     overviewDivider: {
       height: borderWidth.thin,
@@ -798,6 +883,38 @@ const createStyles = (colors: ThemeColors) => ({
     transactionList: {
       gap: spacing.md,
     },
+    dayGroup: {
+      gap: spacing.sm,
+    },
+    dayHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.xs,
+      paddingTop: spacing.xs,
+    },
+    dayTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.textPrimary,
+    },
+    dayTotals: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    dayExpense: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.error,
+      fontFamily: 'Courier',
+    },
+    dayIncome: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.success,
+      fontFamily: 'Courier',
+    },
     transactionItem: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -834,6 +951,23 @@ const createStyles = (colors: ThemeColors) => ({
       fontWeight: '700',
       color: colors.textPrimary,
       marginBottom: spacing.xs,
+    },
+    transactionTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginBottom: spacing.xs,
+    },
+    sourceBadge: {
+      flexShrink: 1,
+      fontSize: 10,
+      fontWeight: '600',
+      color: colors.textTertiary,
+      borderWidth: borderWidth.thin,
+      borderColor: colors.divider,
+      borderRadius: borderRadius.small,
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 1,
     },
     transactionMeta: {
       fontSize: 12,
