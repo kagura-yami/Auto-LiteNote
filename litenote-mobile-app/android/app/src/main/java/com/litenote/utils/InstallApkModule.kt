@@ -3,6 +3,8 @@ package com.litenote.utils
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import com.litenote.BuildConfig
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -12,6 +14,15 @@ class InstallApkModule(reactContext: ReactApplicationContext) : ReactContextBase
 
     override fun getName(): String {
         return "InstallApk"
+    }
+
+    /**
+     * 返回当前已安装 APK 的真实版本号。
+     * 不从 JS bundle 读取 package.json，避免热更新包携带旧版本号时造成循环更新。
+     */
+    @ReactMethod
+    fun getAppVersion(promise: Promise) {
+        promise.resolve(BuildConfig.VERSION_NAME)
     }
 
     @ReactMethod

@@ -35,7 +35,18 @@ export function useAppUpdate(options: UseAppUpdateOptions = {}) {
   });
   const downloadJobId = useRef<number | null>(null);
 
-  const currentVersion = packageJson.version;
+  const [currentVersion, setCurrentVersion] = useState(packageJson.version);
+
+  /**
+   * 以已安装 APK 的 versionName 为准。JS 热更新包可能比原生 APK 旧，不能把
+   * bundle 中编译时嵌入的 package.json 当作当前应用版本。
+   */
+  const getInstalledVersion = useCallback(async () => {
+    const nativeVersion = await NativeModules.InstallApk?.getAppVersion?.();
+    return typeof nativeVersion === 'string' && nativeVersion.trim()
+      ? nativeVersion.trim()
+      : packageJson.version;
+  }, []);
 
   const checkUpdate = useCallback(async (showNoUpdateAlert = false) => {
     if (Platform.OS !== 'android') return;
@@ -44,7 +55,9 @@ export function useAppUpdate(options: UseAppUpdateOptions = {}) {
     setState(prev => ({ ...prev, checking: true }));
 
     try {
-      const result = await appVersionApi.checkUpdate(currentVersion);
+      const installedVersion = await getInstalledVersion();
+      setCurrentVersion(installedVersion);
+      const result = await appVersionApi.checkUpdate(installedVersion);
       console.log('[useAppUpdate] API 返回结果:', JSON.stringify(result));
 
       setState(prev => ({
@@ -65,7 +78,7 @@ export function useAppUpdate(options: UseAppUpdateOptions = {}) {
         alert('检查更新', '检查更新失败，请稍后重试');
       }
     }
-  }, [currentVersion]);
+  }, [getInstalledVersion, alert]);
 
   const hideModal = useCallback(() => {
     setState(prev => ({ ...prev, showModal: false }));

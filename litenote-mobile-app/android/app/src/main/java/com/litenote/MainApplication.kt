@@ -36,11 +36,27 @@ class MainApplication : Application(), ReactApplication {
       }
       hotBundlePathChecked = true
 
+      val prefs = getSharedPreferences("hot_update", Context.MODE_PRIVATE)
+      val nativeVersion = BuildConfig.VERSION_NAME
+      val appliedNativeVersion = prefs.getString("native_version", null)
       val hotBundlePath = File(filesDir, "hot_update/index.android.bundle")
+
+      // 原生 APK 升级后，旧热更新包仍会保留在应用私有目录。该 bundle 内嵌的
+      // package.json 可能是旧版本，导致检查更新持续上报旧版并反复弹窗。
+      if (appliedNativeVersion != nativeVersion) {
+          android.util.Log.i(
+              "HotUpdate",
+              "原生版本已变更: $appliedNativeVersion -> $nativeVersion，清除旧热更新 bundle"
+          )
+          hotBundlePath.parentFile?.deleteRecursively()
+          prefs.edit().clear().putString("native_version", nativeVersion).apply()
+          hotBundlePathCache = null
+          return null
+      }
+
       android.util.Log.i("HotUpdate", "检查热更新 bundle: exists=${hotBundlePath.exists()}, size=${if (hotBundlePath.exists()) hotBundlePath.length() else 0}")
 
       if (hotBundlePath.exists() && hotBundlePath.length() > 0) {
-          val prefs = getSharedPreferences("hot_update", Context.MODE_PRIVATE)
           val crashCount = prefs.getInt("crash_count", 0)
           android.util.Log.i("HotUpdate", "当前 crash_count=$crashCount")
 
